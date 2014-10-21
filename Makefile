@@ -1,4 +1,4 @@
-PROJECT = traffic
+PROJECT = usart1
 
 EXECUTABLE = $(PROJECT).elf
 BIN_IMAGE = $(PROJECT).bin
@@ -39,6 +39,9 @@ CFLAGS += -Wl,--gc-sections
 CFLAGS += -fno-common
 CFLAGS += --param max-inline-insns-single=1000
 
+# FPU
+CFLAGS += -DARM_MATH_CM4 -D__FPU_PRESENT
+
 # specify STM32F429
 CFLAGS += -DSTM32F429_439xx
 
@@ -53,10 +56,22 @@ OBJS += $(PWD)/CORTEX_M4F_STM32F4/startup_stm32f429_439xx.o
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 CFLAGS += -D"assert_param(expr)=((void)0)"
 
+# LIB r3d
+CFLAGS += -I $(PWD)/CORTEX_M4F_STM32F4/game/libs/r3d
+OBJS += $(PWD)/CORTEX_M4F_STM32F4/game/libs/r3d/r3d.o
+
+# LIB r3dfb
+CFLAGS += -I $(PWD)/CORTEX_M4F_STM32F4/game/libs/r3dfb-stm32f429-discovery
+OBJS += $(PWD)/CORTEX_M4F_STM32F4/game/libs/r3dfb-stm32f429-discovery/r3dfb.o
+
+
+
+
 #My restart
 OBJS += \
-      $(PWD)/CORTEX_M4F_STM32F4/main.o \
-      $(PWD)/CORTEX_M4F_STM32F4/startup/system_stm32f4xx.o \
+	$(PWD)/CORTEX_M4F_STM32F4/main.o \
+	$(PWD)/CORTEX_M4F_STM32F4/shell.o \
+	$(PWD)/CORTEX_M4F_STM32F4/startup/system_stm32f4xx.o \
       #$(PWD)/CORTEX_M4F_STM32F4/stm32f4xx_it.o \
 
 OBJS += \
@@ -76,22 +91,28 @@ OBJS += \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_usart.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_syscfg.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_i2c.o \
+    $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_flash.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_spi.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_exti.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_dma2d.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_ltdc.o \
     $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_fmc.o \
-    $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_rng.o \
+    $(PWD)/CORTEX_M4F_STM32F4/Libraries/STM32F4xx_StdPeriph_Driver/src/stm32f4xx_tim.o \
     $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery.o \
     $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery_sdram.o \
     $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery_lcd.o \
-    $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery_ioe.o
+    $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery_ioe.o \
+    $(PWD)/Utilities/STM32F429I-Discovery/stm32f429i_discovery_l3gd20.o
 
-# Traffic
-OBJS += $(PWD)/CORTEX_M4F_STM32F4/traffic/draw_graph.o
-OBJS += $(PWD)/CORTEX_M4F_STM32F4/traffic/move_car.o
-CFLAGS += -I $(PWD)/CORTEX_M4F_STM32F4/traffic/include
+
+# L3GD20 default callback
+# CFLAGS += -DUSE_DEFAULT_TIMEOUT_CALLBACK
+
+
+#Game
+OBJS += $(PWD)/CORTEX_M4F_STM32F4/game/game.o
+CFLAGS += -I $(PWD)/CORTEX_M4F_STM32F4/game/include
 
 CFLAGS += -DUSE_STDPERIPH_DRIVER
 CFLAGS += -I $(PWD)/CORTEX_M4F_STM32F4 \
@@ -124,16 +145,6 @@ $(EXECUTABLE): $(OBJS)
 
 flash:
 	st-flash write $(BIN_IMAGE) 0x8000000
-
-openocd_flash:
-	openocd \
-	-f board/stm32f429discovery.cfg \
-	-c "init" \
-	-c "reset init" \
-	-c "flash probe 0" \
-	-c "flash info 0" \
-	-c "flash write_image erase $(BIN_IMAGE)  0x08000000" \
-	-c "reset run" -c shutdown
 
 .PHONY: clean
 clean:

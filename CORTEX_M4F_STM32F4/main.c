@@ -26,31 +26,52 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "game.h"
+#include "shell.h"
+#include <r3dfb.h>
+#include <r3d.h>
+#include "FreeRTOS.h"
+#include "task.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "main.h"
-#include "draw_graph.h"
-#include "move_car.h"
-
-#include "FreeRTOS.h"
-#include "task.h"
+#include "queue.h"
 #include "semphr.h"
+/** @addtogroup Template
+  * @{
+  */ 
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
-xQueueHandle t_queue; /* Traffic light queue. */
-xQueueHandle t_mutex; /* Traffic light mutex. */
+extern uint8_t demoMode;
+volatile xSemaphoreHandle serial_tx_wait_sem = NULL;
+volatile xQueueHandle t_queue = NULL;
+volatile xQueueHandle serial_rx_queue = NULL;
 
-static int traffic_index = 0; 
-static int button_change_traffic = 0;
-static int states[] = {TRAFFIC_RED, TRAFFIC_YELLOW, TRAFFIC_GREEN, 
-							TRAFFIC_YELLOW};
 
+xTaskHandle xTest1Task;  		//UART
+xTaskHandle xcmdTask;  			//UART
+xTaskHandle xgameTask;			//game
+xTaskHandle xTest3Task; 		 //always run
+xTaskHandle xgame1Task;		//game
+xTaskHandle xgame2Task;		//game
+xTaskHandle xgame3Task;		//game
+xTaskHandle xStateTask;
+
+enum {
+TASK_RUNNING,
+TASK_STOP,
+TASK_INTERRUPT
+};
+
+int last_command=1;
+int SUART_Return=1;  //shell 
+int GUART_Return=0;  //game
+char recv_byte();
 void
 prvInit()
 {
@@ -66,144 +87,229 @@ prvInit()
 
 	//Button
 	STM_EVAL_PBInit( BUTTON_USER, BUTTON_MODE_GPIO );
+
+	//LED
+	STM_EVAL_LEDInit( LED3 );
+	
+	//gryo
+	gryo_init();
+
+
+	//UART
+	RCC_Configuration();
+  	GPIO_Configuration();
+  	USART1_Configuration();
+ 	USART1_puts("Game test\r\n");
 }
 
-static void GetTrafficState(int change_state, int *v_state, int *h_state)
-{
 
-	switch (change_state) {
-	case TRAFFIC_RED:
-		*v_state = TRAFFIC_RED;
-		*h_state = TRAFFIC_GREEN;
-		break;
-	case TRAFFIC_YELLOW:
-		if (*v_state == TRAFFIC_GREEN)
-			*v_state = TRAFFIC_YELLOW;
+
+char recv_byte()
+{
+	while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
+        char t = USART_ReceiveData(USART1);
+	return t;
+}
+
+ssize_t stdin_read(void * buf, size_t count) {
+    int i=0, endofline=0, last_chr_is_esc;
+    char *ptrbuf=buf;
+    char ch;
+    while(i < count&&endofline!=1){
+	ptrbuf[i]=recv_byte();
+	switch(ptrbuf[i]){
+		case '\r':
+		case '\n':
+			ptrbuf[i]='\0';
+			endofline=1;
+			break;
+		case '[':
+			if(last_chr_is_esc){
+				last_chr_is_esc=0;
+				ch=recv_byte();
+				if(ch>=1&&ch<=6){
+					ch=recv_byte();
+				}
+				continue;
+			}
+		case ESC:
+			last_chr_is_esc=1;
+			continue;
+		case BACKSPACE:
+			last_chr_is_esc=0;
+			if(i>0){
+				USART1_puts("\b");
+				USART1_puts("");
+				USART1_puts("\b");
+				--i;
+			}
+			continue;
+		default:
+			last_chr_is_esc=0;
+	}
+	USART_SendData(USART1, ptrbuf[i]);
+	
+	++i;
+    }
+    return i;
+}
+
+void command_prompt(void *pvParameters)
+{
+	
+	char buf[128];
+	char *argv[20];
+        char hint[] = "shell: ";
+
+	USART1_puts("\rWelcome to my Shell\r\n");
+	while(1){
+		
+   		USART1_puts(hint);
+		
+		stdin_read(buf, 127);
+	
+		int n=parse_command(buf, argv);
+
+		/* will return pointer to the command function */
+		cmdfunc *fptr=do_command(argv[0]);
+		
+		if(fptr!=NULL){						
+			fptr(n, argv);
+			}	
 		else
-			*h_state = TRAFFIC_YELLOW;
-		break;
-	case TRAFFIC_GREEN:
-		*v_state = TRAFFIC_GREEN;
-		*h_state = TRAFFIC_RED;
-		break;
-	default:
-		ReportError("out of range");
-		break;
+			USART1_puts("\r\n\command not found.\r\n");
+	}
+
+}
+
+
+
+static void GameEventTask1( void *pvParameters )
+{
+	while( 1 ){
+		GAME_EventHandler1();
+	}
+}
+/*
+static void GameEventTask2( void *pvParameters )
+{
+	while( 1 ){
+		GAME_EventHandler2();
+	}
+}
+*/
+static void GameEventTask3( void *pvParameters )
+{
+	while( 1 ){
+		GAME_EventHandler3();
 	}
 }
 
-static void DrawGraphTask( void *pvParameters)
+
+
+
+
+static void GameTask( void *pvParameters )
+{
+	while( 1 ){
+		GAME_Update();
+		
+		GAME_Render();
+		vTaskDelay( 10 );
+	}
+}
+
+
+
+static void UARTEventTask1( void *pvParameters )  //for game
+{
+	while(1)	{	
+		UART_EventHandler1();
+	}
+}
+
+
+static void StateControlTask( void *pvParameters )
 {
 	const portTickType ticks = 100 / portTICK_RATE_MS;
 	int value;
-	int traffic_v_state = TRAFFIC_GREEN;
-	int traffic_h_state = TRAFFIC_RED;
 
 	portBASE_TYPE status;
 
-	DrawBackground();
+	while ( 1) {
 
-	while ( 1 ) {
-		/*
-		 * Check if the traffic changed event is sent to
-		 * the queue. If so, we need to change the traffic
-		 * light.
-		 */
 		status = xQueueReceive(t_queue, &value, ticks);
 
 		if (status == pdPASS) {
-			GetTrafficState(value, &traffic_v_state, 
-						&traffic_h_state);
-		}
-
-		MoveCar(traffic_v_state, traffic_h_state);
-	}
-}
-
-static void ChgTrafficLightTask(void *pvParameters)
-{
-	int num_ticks;
-	int states_num = sizeof(states) / sizeof(states[0]);
-
-	portBASE_TYPE status;
-	portTickType ticks = TRAFFIC_GREEN_TICK;
-
-	while ( 1 ) {
-		ticks = (states[traffic_index] == TRAFFIC_YELLOW ? 
-			TRAFFIC_YELLOW_TICK : TRAFFIC_GREEN_TICK);
-
-		num_ticks = ticks / TRAFFIC_TICK_SLICE;
-
-		status = xQueueSendToBack(t_queue, &states[traffic_index++], 0);
-	
-		if (status != pdPASS)
-			ReportError("Cannot send to the queue!");
-
-		if (traffic_index >= states_num)
-			traffic_index = 0;
-
-		while (num_ticks--) { 
-			xSemaphoreTake(t_mutex, portMAX_DELAY);
+			switch ( value ) {
 			
-			if (button_change_traffic) {
-				button_change_traffic = 0;
-				xSemaphoreGive(t_mutex);
-				break;
+				case GAME_START:   
+					vTaskSuspend(xcmdTask);
+					vTaskResume(xgame1Task);
+					vTaskResume(xgame2Task);
+					vTaskResume(xgame3Task);
+					vTaskResume(xgameTask);
+					break;
+
+				case GAME_PAUSE:
+					vTaskSuspend(xgame1Task);
+					vTaskSuspend(xgame2Task);
+					vTaskSuspend(xgame3Task);
+					vTaskSuspend(xgameTask);
+					break;
+				case GAME_RESUME:
+					vTaskResume(xgame1Task);
+					vTaskResume(xgame2Task);
+					vTaskResume(xgame3Task);
+					vTaskResume(xgameTask);
+					break;
+				case GAME_STOP:   //game reset
+					BallReset();
+					gryo_init();
+					vTaskSuspend(xgame1Task);
+					vTaskSuspend(xgame2Task);
+					vTaskSuspend(xgame3Task);
+					vTaskSuspend(xgameTask);
+					vTaskResume(xcmdTask);
+					BallReset();
+					gryo_init();
+					GAME_Update();		
+					GAME_Render();
+					break;
+				default:
+					break;
 			}
-
-			xSemaphoreGive(t_mutex);
-
-			vTaskDelay(TRAFFIC_TICK_SLICE);
 		}
 	}
 }
-
-static void ButtonEventTask(void *pvParameters)
-{
-	while (1) {
-		if( STM_EVAL_PBGetState( BUTTON_USER ) ){
-
-			while( STM_EVAL_PBGetState( BUTTON_USER ) );
-
-			xSemaphoreTake(t_mutex, portMAX_DELAY);
-			button_change_traffic = 1;
-			xSemaphoreGive(t_mutex);
-		}
-	}
-}
-
 //Main Function
 int main(void)
 {
-
-	t_queue = xQueueCreate(1, sizeof(int));
-	if (!t_queue) {
-		ReportError("Failed to create t_queue");
-		while(1);
-	}
-
-	t_mutex = xSemaphoreCreateMutex();
-	if (!t_mutex) {
-		ReportError("Failed to create t_mutex");
-		while(1);
-	}
-
 	prvInit();
 
-	xTaskCreate(ChgTrafficLightTask, "Traffic Light Task", 256, 
-			( void * ) NULL, tskIDLE_PRIORITY + 1, NULL);
-
-	xTaskCreate(ButtonEventTask, (char *) "Button Event Task", 256,
-		   	NULL, tskIDLE_PRIORITY + 1, NULL);
-
-	xTaskCreate(DrawGraphTask, (char *) "Draw Graph Task", 256,
-		   	NULL, tskIDLE_PRIORITY + 2, NULL);
+	/* Create the queue used by the serial task.  */
+	vSemaphoreCreateBinary(serial_tx_wait_sem);
+	/* Add for serial input 
+	 * Reference: www.freertos.org/a00116.html */
+	serial_rx_queue = xQueueCreate(1, sizeof(char));
+	t_queue = xQueueCreate(1, sizeof(int));	
 
 
-	RCC_AHB2PeriphClockCmd(RCC_AHB2Periph_RNG, ENABLE);
-        RNG_Cmd(ENABLE);
-
+	if( STM_EVAL_PBGetState( BUTTON_USER ) )
+		demoMode = 1;
+		 
+		xTaskCreate(StateControlTask, (signed char*) "StateControlTask",  128, NULL, tskIDLE_PRIORITY + 1 , &xStateTask);
+		xTaskCreate(command_prompt,  (signed char *) "command_prompt",   512 , NULL, tskIDLE_PRIORITY + 1, &xcmdTask);		
+		xTaskCreate( GameTask, (signed char*) "GameTask", 128, NULL, tskIDLE_PRIORITY + 2, &xgame1Task );
+		xTaskCreate( GameEventTask1, (signed char*) "GameEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xgame2Task );
+		xTaskCreate( GameEventTask3, (signed char*) "GameEventTask3", 128, NULL, tskIDLE_PRIORITY + 2, &xgame3Task );
+		xTaskCreate( UARTEventTask1, (signed char*) "UARTEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xgameTask );  //for game
+		vTaskSuspend(xgame1Task);
+		vTaskSuspend(xgame2Task);
+		vTaskSuspend(xgame3Task);
+		vTaskSuspend(xgameTask);
+		vTaskStartScheduler();	
+		
 	//Call Scheduler
-	vTaskStartScheduler();
+	//vTaskStartScheduler();
 }
-

@@ -34,6 +34,15 @@
 #include "stm32f429i_discovery_lcd.h"
 #include "stm32f429i_discovery_ioe.h"
 
+enum KeyName{ESC=27, BACKSPACE=127};
+
+enum {
+		GAME_START,
+		GAME_PAUSE,
+		GAME_RESUME,
+		GAME_STOP
+};
+
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
@@ -41,5 +50,6 @@
 /* Exported functions ------------------------------------------------------- */
 
 #endif /* __MAIN_H */
+
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
