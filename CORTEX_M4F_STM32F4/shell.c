@@ -72,7 +72,7 @@ void ps_command(int n, char *argv[]){
 void start_command(int n, char *argv[]){
 	signed char buf[1024];
 	
-	USART1_puts("game start\n");
+	USART1_puts("\n\rgame start\n\r");
 	portBASE_TYPE status;
 	status = xQueueSendToBack(t_queue, &states[GAME_START],0);
 	

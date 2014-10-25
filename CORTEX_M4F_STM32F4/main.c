@@ -55,11 +55,11 @@ volatile xQueueHandle serial_rx_queue = NULL;
 
 xTaskHandle xTest1Task;  		//UART
 xTaskHandle xcmdTask;  			//UART
-xTaskHandle xgameTask;			//game
+xTaskHandle xUartTask;			//game
 xTaskHandle xTest3Task; 		 //always run
+xTaskHandle xgameTask;		//game
 xTaskHandle xgame1Task;		//game
 xTaskHandle xgame2Task;		//game
-xTaskHandle xgame3Task;		//game
 xTaskHandle xStateTask;
 
 enum {
@@ -115,6 +115,8 @@ ssize_t stdin_read(void * buf, size_t count) {
     int i=0, endofline=0, last_chr_is_esc;
     char *ptrbuf=buf;
     char ch;
+
+	const portTickType xDelay = 1;
     while(i < count&&endofline!=1){
 	ptrbuf[i]=recv_byte();
 	switch(ptrbuf[i]){
@@ -138,9 +140,12 @@ ssize_t stdin_read(void * buf, size_t count) {
 		case BACKSPACE:
 			last_chr_is_esc=0;
 			if(i>0){
-				USART1_puts("\b");
-				USART1_puts("");
-				USART1_puts("\b");
+				
+				USART_SendData(USART1, '\b');
+				vTaskDelay(xDelay );
+				USART_SendData(USART1, ' ');
+				vTaskDelay(xDelay );
+				USART_SendData(USART1, '\b');
 				--i;
 			}
 			continue;
@@ -190,20 +195,14 @@ static void GameEventTask1( void *pvParameters )
 		GAME_EventHandler1();
 	}
 }
-/*
+
 static void GameEventTask2( void *pvParameters )
 {
 	while( 1 ){
 		GAME_EventHandler2();
 	}
 }
-*/
-static void GameEventTask3( void *pvParameters )
-{
-	while( 1 ){
-		GAME_EventHandler3();
-	}
-}
+
 
 
 
@@ -212,8 +211,7 @@ static void GameEventTask3( void *pvParameters )
 static void GameTask( void *pvParameters )
 {
 	while( 1 ){
-		GAME_Update();
-		
+		GAME_Update();		
 		GAME_Render();
 		vTaskDelay( 10 );
 	}
@@ -233,7 +231,8 @@ static void StateControlTask( void *pvParameters )
 {
 	const portTickType ticks = 100 / portTICK_RATE_MS;
 	int value;
-
+	const portTickType xDelay = 10000 / 100;
+	
 	portBASE_TYPE status;
 
 	while ( 1) {
@@ -244,34 +243,33 @@ static void StateControlTask( void *pvParameters )
 			switch ( value ) {
 			
 				case GAME_START:   
+					boss_init();
+					me_init();
+					my_bullet_init();
 					vTaskSuspend(xcmdTask);
 					vTaskResume(xgame1Task);
 					vTaskResume(xgame2Task);
-					vTaskResume(xgame3Task);
 					vTaskResume(xgameTask);
+					vTaskResume(xUartTask);
 					break;
 
 				case GAME_PAUSE:
 					vTaskSuspend(xgame1Task);
 					vTaskSuspend(xgame2Task);
-					vTaskSuspend(xgame3Task);
-					vTaskSuspend(xgameTask);
+
 					break;
 				case GAME_RESUME:
 					vTaskResume(xgame1Task);
 					vTaskResume(xgame2Task);
-					vTaskResume(xgame3Task);
+					vTaskResume(xUartTask);
 					vTaskResume(xgameTask);
 					break;
-				case GAME_STOP:   //game reset
-					BallReset();
-					gryo_init();
+				case GAME_STOP:   //game reset					
 					vTaskSuspend(xgame1Task);
 					vTaskSuspend(xgame2Task);
-					vTaskSuspend(xgame3Task);
+					vTaskSuspend(xUartTask);
 					vTaskSuspend(xgameTask);
 					vTaskResume(xcmdTask);
-					BallReset();
 					gryo_init();
 					GAME_Update();		
 					GAME_Render();
@@ -298,15 +296,14 @@ int main(void)
 	if( STM_EVAL_PBGetState( BUTTON_USER ) )
 		demoMode = 1;
 		 
-		xTaskCreate(StateControlTask, (signed char*) "StateControlTask",  128, NULL, tskIDLE_PRIORITY + 1 , &xStateTask);
-		xTaskCreate(command_prompt,  (signed char *) "command_prompt",   512 , NULL, tskIDLE_PRIORITY + 1, &xcmdTask);		
-		xTaskCreate( GameTask, (signed char*) "GameTask", 128, NULL, tskIDLE_PRIORITY + 2, &xgame1Task );
-		xTaskCreate( GameEventTask1, (signed char*) "GameEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xgame2Task );
-		xTaskCreate( GameEventTask3, (signed char*) "GameEventTask3", 128, NULL, tskIDLE_PRIORITY + 2, &xgame3Task );
-		xTaskCreate( UARTEventTask1, (signed char*) "UARTEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xgameTask );  //for game
+		xTaskCreate(StateControlTask, (signed char*) "StateControlTask",  128, NULL, tskIDLE_PRIORITY + 3 , &xStateTask);
+		xTaskCreate(command_prompt,  (signed char *) "command_prompt",   512 , NULL, tskIDLE_PRIORITY + 3, &xcmdTask);		
+		xTaskCreate( GameTask, (signed char*) "GameTask", 128, NULL, tskIDLE_PRIORITY + 2, &xgameTask );
+		xTaskCreate( GameEventTask1, (signed char*) "GameEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xgame1Task );
+		xTaskCreate( GameEventTask2, (signed char*) "GameEventTask2", 128, NULL, tskIDLE_PRIORITY + 2, &xgame2Task );
+		xTaskCreate( UARTEventTask1, (signed char*) "UARTEventTask1", 128, NULL, tskIDLE_PRIORITY + 2, &xUartTask );  //for game
 		vTaskSuspend(xgame1Task);
 		vTaskSuspend(xgame2Task);
-		vTaskSuspend(xgame3Task);
 		vTaskSuspend(xgameTask);
 		vTaskStartScheduler();	
 		

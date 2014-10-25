@@ -23,21 +23,52 @@ typedef struct {
 	uint8_t u, v;
 } vertex_t;
 
+typedef struct {
+	int LifePoint;	
+	
+} me;
+
+
+typedef struct {
+	int LifePoint;	
+	int gun[3];
+	
+	int gunCount;
+} boss;
+
+typedef struct {
+	int16_t ballX;
+	int16_t ballY;
+	int16_t ballVX;
+	int16_t ballVY;
+	uint8_t ballIsRun;
+} bullet;
+
+boss boss1;
+me me1;
+const int body[2][3] = {{1,1,1},{0,1,0}};
+
+//boss
+int16_t boss_centerX = LCD_PIXEL_WIDTH/2;
+int16_t boss_centerY = LCD_PIXEL_HEIGHT - 20;
+int16_t bossVX=5;
+#define MAX_BOSS_BULLET 3
+#define MAX_MY_BULLET 3
+
+
+bullet boss_bullet[MAX_BOSS_BULLET];
+bullet  my_bullet[MAX_MY_BULLET];
+
 int axes[3] = {0};
 float time = 0.0f, frametime = 0.0f;
-//Player1
-int16_t player1X = 10;
-int16_t player1Y = 10;
-uint16_t player1W = 60;
-uint16_t player1H = 10;
+int standby=0;
+
+//me
+int16_t me_centerX = LCD_PIXEL_WIDTH/2;
+int16_t me_centerY = 20;
 uint8_t player1IsReversed = 1;
 
-//Player2
-int16_t player2X = LCD_PIXEL_WIDTH - 20;
-int16_t player2Y = LCD_PIXEL_HEIGHT - 20;
-uint16_t player2W = 60;
-uint16_t player2H = 10;
-uint8_t player2IsReversed = 0;
+
 
 //Ball
 uint16_t ballSize = 5;
@@ -46,6 +77,9 @@ int16_t ballY = ( LCD_PIXEL_HEIGHT - 5 ) / 2;
 int16_t ballVX = 5;
 int16_t ballVY = 5;
 uint8_t ballIsRun = 0;
+
+
+
 
 //Mode
 uint8_t demoMode = 0;
@@ -112,17 +146,134 @@ void gryo_update()
 
 }
 
+void 
+boss_init()
+{
+
+	boss1.LifePoint=9;
+	boss1.gun[0]=1;
+	boss1.gun[1]=1;
+	boss1.gun[2]=1;
+	boss1.gunCount=3;	
+	
+}
+
+void boss_bullet_init()
+{
+
+	if(boss1.gun[0]==1)
+		boss_bullet[0].ballX = boss_centerX-10 ;
+		boss_bullet[0].ballY = boss_centerY-10*3;
+		boss_bullet[0].ballVX = 0;
+		boss_bullet[0].ballVY = 10;
+
+	if(boss1.gun[1]==1)
+		boss_bullet[1].ballX = boss_centerX ;
+		boss_bullet[1].ballY = boss_centerY-10*4;
+		boss_bullet[1].ballVX = 0;
+		boss_bullet[1].ballVY = 10;
+
+	if(boss1.gun[2]==1)
+		boss_bullet[2].ballX = boss_centerX+10 ;
+		boss_bullet[2].ballY = boss_centerY-10*3;
+		boss_bullet[2].ballVX = 0;
+		boss_bullet[2].ballVY = 10;
+
+}
+
+void my_bullet_init()
+{
+	standby=3;
+	for(int i=0; i<3; i++){
+		my_bullet[i].ballX = me_centerX;
+		my_bullet[i].ballY = me_centerY;
+		my_bullet[i].ballIsRun=0;
+	}
+
+}
+
+void 
+me_init()
+{
+	me1.LifePoint=9;
+}
+
 void
-BallReset()
+draw_boss()
+{
+		for(int i=0; i<2;i++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				if(body[i][j]==1) 
+					LCD_DrawFullRect( boss_centerX-10*(j-1), boss_centerY-10*i, 10, 10 );
+			}
+		}
+	
+			
+}
+
+void
+draw_gun()
+{
+
+			if(boss1.gun[0]==1)
+			{
+				LCD_DrawFullRect( boss_centerX-10, boss_centerY-10, 10, 10 );
+			}
+			if(boss1.gun[1]==1)
+			{
+				LCD_DrawFullRect( boss_centerX, boss_centerY-20, 10, 10 );
+			}
+			if(boss1.gun[2]==1)
+			{
+				LCD_DrawFullRect( boss_centerX+10, boss_centerY-10, 10, 10 );
+			}
+
+}
+
+void
+draw_me()
+{
+		for(int i=0; i<2;i++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				if(body[i][j]==1) 
+					LCD_DrawFullRect( me_centerX-10*(j-2), me_centerY+10*i, 10, 10 );
+			}
+		}
+
+}
+
+void
+draw_bossbullet()
+{
+	for(int i=0; i<3; i++){
+		if(boss1.gun[i]==1)
+		LCD_DrawFullRect(  boss_bullet[i].ballX, boss_bullet[i].ballY, 10, 10 );
+	}
+
+}
+
+draw_mybullet()
 {
 	
-	ballX = ( LCD_PIXEL_WIDTH - 5 ) / 2;
-	ballY = ( LCD_PIXEL_HEIGHT - 5 ) / 2;
+	for(int i=0; i<3;i++)
+	{
+		
+		if(my_bullet[i].ballIsRun) 
+			LCD_DrawFullRect( my_bullet[i].ballX, my_bullet[i].ballY, 10, 10 );		
+	}
 
-	ballVX = 5;
-	ballVY = 5;
+}
 
-	ballIsRun = 1;
+void
+GAME_Reset()
+{
+	boss_init();
+	me_init();
+	
 }
 
 void
@@ -130,25 +281,21 @@ GAME_EventHandler1()
 {
 	gryo_update();
 }
-/*
 void
 GAME_EventHandler2()
 {
-	if( IOE_TP_GetState()->TouchDetected ){
+	if(STM_EVAL_PBGetState(BUTTON_USER))
+	{		
+		if(standby>0){
+			for(int i=0; i<3; i++) {
+				if(my_bullet[i].ballIsRun==0) {					
+					my_bullet[i].ballIsRun=1;
+				}
+				break;
+			}			
+			standby--;
 
-		player2IsReversed = 1;
-
-		while( IOE_TP_GetState()->TouchDetected );
-
-		player2IsReversed = 0;
-	}
-}
-*/
-void
-GAME_EventHandler3()
-{
-	if( ballIsRun == 0 ){
-		BallReset();
+		}		
 	}
 }
 
@@ -159,8 +306,9 @@ GAME_Update()
 
 	//Player1
 	LCD_SetTextColor( LCD_COLOR_BLACK );
-	LCD_DrawFullRect( player1X, player1Y, player1W, player1H );
-	LCD_DrawFullRect( player2X, player2Y, player2W, player2H );
+	draw_me();
+	draw_boss();
+	draw_gun();
 	//char str[5];
 	if( demoMode == 0 ){
 
@@ -169,212 +317,141 @@ GAME_Update()
 		itoa(axes[1], str, 10);
 		USART1_puts(str);
 		USART1_puts('\n');  */
+			
+		me_centerX  += gyro_Mapping(axes[1]);
+
+		if( me_centerX  <= 30 )
+			me_centerX = 30;
+		else if( me_centerX  >= LCD_PIXEL_WIDTH -30)
+			me_centerX  = LCD_PIXEL_WIDTH - 30;
+
+		/*//for level2
+		int direc = rand()%3;
+				
 		
-			player1X += gyro_Mapping(axes[1]);
-
-		if( player1X <= 0 )
-			player1X = 0;
-		else if( player1X + player1W >= LCD_PIXEL_WIDTH )
-			player1X = LCD_PIXEL_WIDTH - player1W;
-
-		//Player2
-		if( arrowKey=='z' )
-			player2X -= 5;
-		else if(arrowKey=='c')
-			player2X += 5;
+		if( direc ==0)
+			boss_centerX -= 5;
+		else if(direc ==1)
+			boss_centerX+= 5;
 		else
-			player1X -= 0;
+			boss_centerX -= 0;
 
-		if( player2X <= 0 )
-			player2X = 0;
-		else if( player2X + player2W >= LCD_PIXEL_WIDTH )
-			player2X = LCD_PIXEL_WIDTH - player2W;
+		if( boss_centerX <= 20 )
+			boss_centerX = 20;
+		else if( boss_centerX >= LCD_PIXEL_WIDTH -20)
+			boss_centerX = LCD_PIXEL_WIDTH - 20;
+			*/
 
-		//Ball
-		if( ballIsRun == 1 ){
+		boss_centerX+=bossVX;
+		if(boss_centerX<=20){
+			boss_centerX=20;
+			bossVX*=-1;
+		}
+		else if(boss_centerX>=LCD_PIXEL_WIDTH -20){
 
+			boss_centerX=LCD_PIXEL_WIDTH -20;
+			bossVX*=-1;
+		}
+			
+		
+		
+			//draw bullet black
 			LCD_SetTextColor( LCD_COLOR_BLACK );
-			LCD_DrawFullRect( ballX, ballY, ballSize, ballSize );
+			draw_mybullet();
+			draw_bossbullet();
 
-			//Touch wall
-			ballX += ballVX;
-			if( ballX <= 0 ){
-				ballX = 0;
-				ballVX *= -1;
-			}
-			else if( ballX + ballSize >= LCD_PIXEL_WIDTH ){
-				ballX = LCD_PIXEL_WIDTH - ballSize;
-				ballVX *= -1;
-			}
+			
+			//boss bullet
+			//move bullet
+			for(int i=0; i<3; i++)
+			{
 
-			//PONG!
-			ballY += ballVY;
-			if( ballY + ballSize >= player2Y ){
-				if( ballX + ballSize >= player2X && ballX <= player2X + player2W ){
-					if( ballX - ballSize <= player2Y + player2W/4 ){
-						ballVY =-3;
-						ballVX =-7;
+				if(boss1.gun[i]==1)
+				{
+					if(boss_bullet[i].ballY<=0) {
+						boss_bullet_init();
+						break;
 					}
-					else if( ballX >= player2Y + player2W - player2W/4 ){
-						ballVY =-3;
-						ballVX = 7;
-					}
-					else if( ballX + ballSize < player2Y + player2W/2 ){
-						ballVY =-7;
-						ballVX =-3;
-					}
-					else if( ballX > player2Y + player2W/2 ){
-						ballVY =-7;
-						ballVX = 3;
-					}
+					
 					else{
-						ballVY =-9;
-						ballVX = 0;
+						boss_bullet[i].ballY-=10;
 					}
 				}
-				else
-					BallReset();
-			}
 
-			if( ballY <= player1Y + player1H ){
-					if( ballX + ballSize >= player1X && ballX <= player1X + player1W ){
-						if( ballX - ballSize <= player1Y + player1W/4 ){
-							ballVY = 3;
-							ballVX =-7;
-						}
-						else if( ballX >= player1Y + player1W - player1W/4 ){
-							ballVY = 3;
-							ballVX = 7;
-						}
-						else if( ballX + ballSize < player1Y + player1W/2 ){
-							ballVY = 7;
-							ballVX =-3;
-						}
-						else if( ballX > player1Y + player1W/2 ){
-							ballVY = 7;
-							ballVX = 3;
+			}
+			//my bullet
+			for(int i=0; i<3; i++)
+			{
+
+				if(my_bullet[i].ballIsRun==1)
+				{
+					if(my_bullet[i].ballY>=LCD_PIXEL_HEIGHT - 20) {
+						standby++;
+						my_bullet[i].ballIsRun=0;
+						my_bullet[i].ballX = me_centerX;
+						my_bullet[i].ballY = me_centerY;						
+						break;
+					}
+					
+					else{
+						my_bullet[i].ballY+=10;
+					}
+				}
+
+			}
+			
+
+			//PONG! me
+			for(int i=0; i<3; i++)
+			{
+
+				if(boss1.gun[i]==1)
+				{
+					if(boss_bullet[i].ballY<=me_centerY){
+
+						if(boss_bullet[i].ballX<=me_centerX+10&&boss_bullet[i].ballX>=me_centerX-10) {
+							me1.LifePoint--;
 						}
 						else{
-							ballVY = 9;
-							ballVX = 0;
+
+							boss_bullet_init();
 						}
 					}
-					else
-						BallReset();
-				}
-			}
-		}
-		else{	//if demoMode == 1
-
-			//Player1 move
-			if( ballVY < 0 ){
-				if( player1X + player1W/2 < ballX + ballSize/2 ){
-					player1X += 8;
-					player2X += 2;
-				}
-				else{
-					player1X -= 8;
-					player2X -= 2;
-				}
-			}
-
-			//Player2 move
-			if( ballVY > 0 ){
-				if( player2X + player2W/2 < ballX + ballSize/2 ){
-					player1X += 2;
-					player2X += 8;
-				}
-				else{
-					player1X -= 2;
-					player2X -= 8;
+							
 				}
 
 			}
+			
+			//PONG! boss
+			for(int i=0; i<3; i++){
+				if(my_bullet[i].ballIsRun){
+					if(my_bullet[i].ballY>=boss_centerY)
+					{
+						if(my_bullet[i].ballX<=boss_centerX+20&&my_bullet[i].ballX<=boss_centerX-20){
+							if(boss1.gunCount==3){
+								boss1.gun[2]=0;
+								boss1.gunCount--;
+							}
+							else if(boss1.gunCount==2){
+								boss1.gun[0]=0;
+								boss1.gunCount--;
+							}
+							boss1.LifePoint--;
+							standby++;
+							my_bullet[i].ballIsRun=0;
+							my_bullet[i].ballX = me_centerX;
+							my_bullet[i].ballY = me_centerY;		
+						}
+							
+					}
 
-			if( player1X <= 0 )
-				player1X = 0;
-			else if( player1X + player1W >= LCD_PIXEL_WIDTH )
-				player1X = LCD_PIXEL_WIDTH - player1W;
-
-			if( player2X <= 0 )
-				player2X = 0;
-			else if( player2X + player2W >= LCD_PIXEL_WIDTH )
-				player2X = LCD_PIXEL_WIDTH - player2W;
-
-
-			//Ball
-			if( ballIsRun == 1 ){
-
-				LCD_SetTextColor( LCD_COLOR_BLACK );
-				LCD_DrawFullRect( ballX, ballY, ballSize, ballSize );
-
-				//Touch wall
-				ballX += ballVX;
-				if( ballX <= 0 ){
-					ballX = 0;
-					ballVX *= -1;
-				}
-				else if( ballX + ballSize >= LCD_PIXEL_WIDTH ){
-					ballX = LCD_PIXEL_WIDTH - ballSize;
-					ballVX *= -1;
 				}
 
-				//PONG!
-				ballY += ballVY;
-				if( ballY + ballSize >= player2Y ){
-					if( ballX + ballSize >= player2X && ballX <= player2X + player2W ){
-					if( ballX - ballSize <= player2Y + player2W/4 ){
-						ballVY =-3;
-						ballVX =-7;
-					}
-					else if( ballX >= player2Y + player2W - player2W/4 ){
-						ballVY =-3;
-						ballVX = 7;
-					}
-					else if( ballX + ballSize < player2Y + player2W/2 ){
-						ballVY =-7;
-						ballVX =-3;
-					}
-					else if( ballX > player2Y + player2W/2 ){
-						ballVY =-7;
-						ballVX = 3;
-					}
-					else{
-						ballVY =-9;
-						ballVX = 0;
-					}
-				}
-				else
-					BallReset();
+
 			}
 
-			if( ballY <= player1Y + player1H ){
-				if( ballX + ballSize >= player1X && ballX <= player1X + player1W ){
-					if( ballX - ballSize <= player1Y + player1W/4 ){
-						ballVY = 3;
-						ballVX =-7;
-					}
-					else if( ballX >= player1Y + player1W - player1W/4 ){
-						ballVY = 3;
-						ballVX = 7;
-					}
-					else if( ballX + ballSize < player1Y + player1W/2 ){
-						ballVY = 7;
-						ballVX =-3;
-					}
-					else if( ballX > player1Y + player1W/2 ){
-						ballVY = 7;
-						ballVX = 3;
-					}
-					else{
-						ballVY = 9;
-						ballVX = 0;
-					}
-				}
-				else
-					BallReset();
-			}
-		}
+		
+		
 	}
 }
 static char* itoa(int value, char* result, int base)
@@ -405,15 +482,25 @@ static char* itoa(int value, char* result, int base)
 void
 GAME_Render()
 {
-	char str[16] = "Y: ";
-	itoa(axes[1], str + 3, 10);
-	LCD_DisplayStringLine(LCD_LINE_6, str);
+	char str1[16] = "boss: ";
+	itoa(boss1.LifePoint, str1 + 4, 10);
+	LCD_DisplayStringLine(LCD_LINE_6, str1);
+
+	char str2[16] = "me: ";
+	itoa(me1.LifePoint, str2 + 4, 10);
+	LCD_DisplayStringLine(LCD_LINE_5, str2);
 
 	LCD_SetTextColor( LCD_COLOR_WHITE );
-	LCD_DrawFullRect( player1X, player1Y, player1W, player1H );
-	LCD_DrawFullRect( player2X, player2Y, player2W, player2H );
-	LCD_DrawFullRect( ballX, ballY, ballSize, ballSize );
-	LCD_DrawLine( 10, LCD_PIXEL_HEIGHT / 2, LCD_PIXEL_WIDTH - 20, LCD_DIR_HORIZONTAL );
+	draw_me();
+	draw_boss();
+	
+	LCD_SetTextColor( LCD_COLOR_RED );
+	draw_bossbullet();
+	draw_gun();
+
+	LCD_SetTextColor( LCD_COLOR_BLUE );
+	draw_mybullet();
+	
 }
 
 
@@ -487,6 +574,7 @@ void USART1_puts(char* s)
 int
 UART_EventHandler1()  //for game
 {
+	USART_SendData(USART1, '1');
         while(USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == RESET);
         char t = USART_ReceiveData(USART1);
 

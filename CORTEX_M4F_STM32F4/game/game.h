@@ -2,18 +2,21 @@
 #define GAME_H
 
 void
-EventHandler1();
+GAME_EventHandler1();
 
 void
-EventHandler2();
+GAME_EventHandler2();
 
 void
-EventHandler3();
+GAME_EventHandler3();
 
 void
 GAME_Update();
 
 void
 GAME_Render();
+
+void
+my_bullet_init();
 
 #endif
