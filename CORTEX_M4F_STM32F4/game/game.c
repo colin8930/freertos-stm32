@@ -256,13 +256,14 @@ draw_bossbullet()
 
 }
 
+void
 draw_mybullet()
 {
 	
 	for(int i=0; i<3;i++)
 	{
 		
-		if(my_bullet[i].ballIsRun) 
+		if(my_bullet[i].ballIsRun==1) 
 			LCD_DrawFullRect( my_bullet[i].ballX, my_bullet[i].ballY, 10, 10 );		
 	}
 
@@ -284,17 +285,19 @@ GAME_EventHandler1()
 void
 GAME_EventHandler2()
 {
+	const portTickType xDelay = 100;
 	if(STM_EVAL_PBGetState(BUTTON_USER))
 	{		
 		if(standby>0){
 			for(int i=0; i<3; i++) {
 				if(my_bullet[i].ballIsRun==0) {					
 					my_bullet[i].ballIsRun=1;
+					standby--;
+					vTaskDelay(xDelay );
+					break;
 				}
-				break;
+				
 			}			
-			standby--;
-
 		}		
 	}
 }
@@ -318,7 +321,7 @@ GAME_Update()
 		USART1_puts(str);
 		USART1_puts('\n');  */
 			
-		me_centerX  += gyro_Mapping(axes[1]);
+		me_centerX  += gyro_Mapping(axes[1])*1.5;
 
 		if( me_centerX  <= 30 )
 			me_centerX = 30;
@@ -390,7 +393,7 @@ GAME_Update()
 						my_bullet[i].ballIsRun=0;
 						my_bullet[i].ballX = me_centerX;
 						my_bullet[i].ballY = me_centerY;						
-						break;
+						continue;
 					}
 					
 					else{
@@ -490,6 +493,12 @@ GAME_Render()
 	itoa(me1.LifePoint, str2 + 4, 10);
 	LCD_DisplayStringLine(LCD_LINE_5, str2);
 
+	/*//
+	char str3[16] = "standby: ";
+	itoa(standby, str3 + 9, 10);
+	LCD_DisplayStringLine(LCD_LINE_5, str3);
+	*/
+	
 	LCD_SetTextColor( LCD_COLOR_WHITE );
 	draw_me();
 	draw_boss();
