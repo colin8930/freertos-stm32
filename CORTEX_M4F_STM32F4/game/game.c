@@ -25,6 +25,8 @@ typedef struct {
 
 typedef struct {
 	int LifePoint;	
+	int16_t centerX ;
+	int16_t centerY;
 	
 } me;
 
@@ -32,7 +34,8 @@ typedef struct {
 typedef struct {
 	int LifePoint;	
 	int gun[3];
-	
+	int16_t centerX ;
+	int16_t centerY ;	
 	int gunCount;
 } boss;
 
@@ -44,45 +47,47 @@ typedef struct {
 	uint8_t ballIsRun;
 } bullet;
 
-boss boss1;
-me me1;
+boss boss1[2];
+me me1[2];
+int shoot=0;
+
+int layer_state=0;
+
 const int body[2][3] = {{1,1,1},{0,1,0}};
 
 //boss
-int16_t boss_centerX = LCD_PIXEL_WIDTH/2;
-int16_t boss_centerY = LCD_PIXEL_HEIGHT - 20;
+
 int16_t bossVX=5;
 #define MAX_BOSS_BULLET 3
 #define MAX_MY_BULLET 3
 
+typedef struct {
+	bullet bullet [3];
+} bullets;
 
-bullet boss_bullet[MAX_BOSS_BULLET];
-bullet  my_bullet[MAX_MY_BULLET];
+
+bullets boss_bullet[2];
+bullets  my_bullet[2];
 
 int axes[3] = {0};
 float time = 0.0f, frametime = 0.0f;
 int standby=0;
 
-//me
-int16_t me_centerX = LCD_PIXEL_WIDTH/2;
-int16_t me_centerY = 20;
-uint8_t player1IsReversed = 1;
 
 
 
-//Ball
-uint16_t ballSize = 5;
-int16_t ballX = ( LCD_PIXEL_WIDTH - 5 ) / 2;
-int16_t ballY = ( LCD_PIXEL_HEIGHT - 5 ) / 2;
-int16_t ballVX = 5;
-int16_t ballVY = 5;
-uint8_t ballIsRun = 0;
 
 
 
+uint32_t layer_next=LCD_BACKGROUND_LAYER;
+uint8_t SHOW=0xFF;
+uint8_t HIDE=0x00;
 
 //Mode
 uint8_t demoMode = 0;
+
+//layer
+int layer = 1;
 
 //input char
 char arrowKey='\n';
@@ -150,34 +155,42 @@ void
 boss_init()
 {
 
-	boss1.LifePoint=9;
-	boss1.gun[0]=1;
-	boss1.gun[1]=1;
-	boss1.gun[2]=1;
-	boss1.gunCount=3;	
+	for(int i=0; i<2; i++){
+		
+		boss1[i].LifePoint=9;
+		boss1[i].gun[0]=1;
+		boss1[i].gun[1]=1;
+		boss1[i].gun[2]=1;
+		boss1[i].gunCount=3;
+		boss1[i].centerX=LCD_PIXEL_WIDTH/2;
+		boss1[i].centerY=LCD_PIXEL_HEIGHT - 20;
+
+	}
+	
 	
 }
 
 void boss_bullet_init()
 {
 
-	if(boss1.gun[0]==1)
-		boss_bullet[0].ballX = boss_centerX-10 ;
-		boss_bullet[0].ballY = boss_centerY-10*3;
-		boss_bullet[0].ballVX = 0;
-		boss_bullet[0].ballVY = 10;
+	if(boss1[0].gun[0]==1)
+		boss_bullet[0].bullet[0].ballX = boss1[0].centerX-10 ;
+		boss_bullet[0].bullet[0].ballY = boss1[0].centerY-10*3;
+		boss_bullet[0].bullet[0].ballVX = 0;
+		boss_bullet[0].bullet[0].ballVY = 5;
 
-	if(boss1.gun[1]==1)
-		boss_bullet[1].ballX = boss_centerX ;
-		boss_bullet[1].ballY = boss_centerY-10*4;
-		boss_bullet[1].ballVX = 0;
-		boss_bullet[1].ballVY = 10;
+	if(boss1[0].gun[1]==1)
+		boss_bullet[0].bullet[1].ballX = boss1[0].centerX ;
+		boss_bullet[0].bullet[1].ballY = boss1[0].centerY-10*4;
+		boss_bullet[0].bullet[1].ballVX = 0;
+		boss_bullet[0].bullet[1].ballVY = 5;
 
-	if(boss1.gun[2]==1)
-		boss_bullet[2].ballX = boss_centerX+10 ;
-		boss_bullet[2].ballY = boss_centerY-10*3;
-		boss_bullet[2].ballVX = 0;
-		boss_bullet[2].ballVY = 10;
+	if(boss1[0].gun[2]==1)
+		boss_bullet[0].bullet[2].ballX = boss1[0].centerX+10 ;
+		boss_bullet[0].bullet[2].ballY = boss1[0].centerY-10*3;
+		boss_bullet[0].bullet[2].ballVX = 0;
+		boss_bullet[0].bullet[2].ballVY = 5;
+
 
 }
 
@@ -185,9 +198,9 @@ void my_bullet_init()
 {
 	standby=3;
 	for(int i=0; i<3; i++){
-		my_bullet[i].ballX = me_centerX;
-		my_bullet[i].ballY = me_centerY;
-		my_bullet[i].ballIsRun=0;
+		my_bullet[0].bullet[i].ballX = me1[0].centerX;
+		my_bullet[0].bullet[i].ballY = me1[0].centerY;
+		my_bullet[0].bullet[i].ballIsRun=0;
 	}
 
 }
@@ -195,18 +208,41 @@ void my_bullet_init()
 void 
 me_init()
 {
-	me1.LifePoint=9;
+	for(int i=0; i<2; i++){
+
+		me1[i].LifePoint=9;
+		me1[i].centerX= LCD_PIXEL_WIDTH/2;
+		me1[i].centerY= 20;
+
+	}
+	
+
 }
 
 void
-draw_boss()
+draw_me(me me2)
 {
 		for(int i=0; i<2;i++)
 		{
 			for(int j=0;j<3;j++)
 			{
 				if(body[i][j]==1) 
-					LCD_DrawFullRect( boss_centerX-10*(j-1), boss_centerY-10*i, 10, 10 );
+					LCD_DrawFullRect( me2.centerX-10*(j-2), me2.centerY+10*i, 10, 10 );
+			}
+		}
+
+}
+
+
+void
+draw_boss(boss boss2)
+{
+		for(int i=0; i<2;i++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				if(body[i][j]==1) 
+					LCD_DrawFullRect( boss2.centerX-10*(j-1), boss2.centerY-10*i, 10, 10 );
 			}
 		}
 	
@@ -214,60 +250,48 @@ draw_boss()
 }
 
 void
-draw_gun()
+draw_gun(boss boss2)
 {
 
-			if(boss1.gun[0]==1)
+			if(boss2.gun[0]==1)
 			{
-				LCD_DrawFullRect( boss_centerX-10, boss_centerY-10, 10, 10 );
+				LCD_DrawFullRect( boss2.centerX-10, boss2.centerY-10, 10, 10 );
 			}
-			if(boss1.gun[1]==1)
+			if(boss2.gun[1]==1)
 			{
-				LCD_DrawFullRect( boss_centerX, boss_centerY-20, 10, 10 );
+				LCD_DrawFullRect( boss2.centerX, boss2.centerY-20, 10, 10 );
 			}
-			if(boss1.gun[2]==1)
+			if(boss2.gun[2]==1)
 			{
-				LCD_DrawFullRect( boss_centerX+10, boss_centerY-10, 10, 10 );
+				LCD_DrawFullRect( boss2.centerX+10, boss2.centerY-10, 10, 10 );
 			}
 
 }
 
-void
-draw_me()
-{
-		for(int i=0; i<2;i++)
-		{
-			for(int j=0;j<3;j++)
-			{
-				if(body[i][j]==1) 
-					LCD_DrawFullRect( me_centerX-10*(j-2), me_centerY+10*i, 10, 10 );
-			}
-		}
-
-}
 
 void
-draw_bossbullet()
+draw_bossbullet(bullets bulletsin)
 {
 	for(int i=0; i<3; i++){
-		if(boss1.gun[i]==1)
-		LCD_DrawFullRect(  boss_bullet[i].ballX, boss_bullet[i].ballY, 10, 10 );
+		if(boss1[0].gun[i]==1)
+		LCD_DrawFullRect(  bulletsin.bullet[i].ballX, bulletsin.bullet[i].ballY, 10, 10 );
 	}
 
 }
 
 void
-draw_mybullet()
+draw_mybullet(bullets bulletsin)
 {
 	
 	for(int i=0; i<3;i++)
 	{
 		
-		if(my_bullet[i].ballIsRun==1) 
-			LCD_DrawFullRect( my_bullet[i].ballX, my_bullet[i].ballY, 10, 10 );		
+		if(bulletsin.bullet[i].ballIsRun==1) 
+			LCD_DrawFullRect( bulletsin.bullet[i].ballX, bulletsin.bullet[i].ballY, 10, 10 );		
 	}
 
 }
+
 
 void
 GAME_Reset()
@@ -287,97 +311,76 @@ GAME_EventHandler2()
 {
 	const portTickType xDelay = 100;
 	if(STM_EVAL_PBGetState(BUTTON_USER))
-	{		
-		if(standby>0){
-			for(int i=0; i<3; i++) {
-				if(my_bullet[i].ballIsRun==0) {					
-					my_bullet[i].ballIsRun=1;
-					standby--;
-					vTaskDelay(xDelay );
-					break;
-				}
-				
-			}			
-		}		
+	{	
+		shoot=1;	
+		vTaskDelay(100);		
 	}
 }
 
 void
 GAME_Update()
 {
-
-
-	//Player1
-	LCD_SetTextColor( LCD_COLOR_BLACK );
-	draw_me();
-	draw_boss();
-	draw_gun();
+	
 	//char str[5];
 	if( demoMode == 0 ){
 
-
-/*   for debug
-		itoa(axes[1], str, 10);
-		USART1_puts(str);
-		USART1_puts('\n');  */
-			
-		me_centerX  += gyro_Mapping(axes[1])*1.5;
-
-		if( me_centerX  <= 30 )
-			me_centerX = 30;
-		else if( me_centerX  >= LCD_PIXEL_WIDTH -30)
-			me_centerX  = LCD_PIXEL_WIDTH - 30;
-
-		/*//for level2
-		int direc = rand()%3;
-				
 		
-		if( direc ==0)
-			boss_centerX -= 5;
-		else if(direc ==1)
-			boss_centerX+= 5;
-		else
-			boss_centerX -= 0;
+		me1[0].centerX  += gyro_Mapping(axes[1])*1.5;
+		if(shoot==1){
 
-		if( boss_centerX <= 20 )
-			boss_centerX = 20;
-		else if( boss_centerX >= LCD_PIXEL_WIDTH -20)
-			boss_centerX = LCD_PIXEL_WIDTH - 20;
-			*/
+			if(standby>0){
+			for(int i=0; i<3; i++) {
+				if(my_bullet[0].bullet[i].ballIsRun==0) {					
+					my_bullet[0].bullet[i].ballIsRun=1;
+					standby--;
+					shoot=0;
+					
+					break;
+				}
+				
+			}			
+		}
 
-		boss_centerX+=bossVX;
-		if(boss_centerX<=20){
-			boss_centerX=20;
+		}
+
+		if( me1[0].centerX  <= 30 )
+			me1[0].centerX = 30;
+		else if( me1[0].centerX  >= LCD_PIXEL_WIDTH -30)
+			me1[0].centerX  = LCD_PIXEL_WIDTH - 30;
+
+
+
+		boss1[0].centerX+=bossVX;
+		if(boss1[0].centerX<=20){
+			boss1[0].centerX=20;
 			bossVX*=-1;
 		}
-		else if(boss_centerX>=LCD_PIXEL_WIDTH -20){
+		else if(boss1[0].centerX>=LCD_PIXEL_WIDTH -20){
 
-			boss_centerX=LCD_PIXEL_WIDTH -20;
+			boss1[0].centerX=LCD_PIXEL_WIDTH -20;
 			bossVX*=-1;
 		}
 			
 		
 		
 			//draw bullet black
-			LCD_SetTextColor( LCD_COLOR_BLACK );
-			draw_mybullet();
-			draw_bossbullet();
 
+			
 			
 			//boss bullet
 			//move bullet
 			for(int i=0; i<3; i++)
 			{
 
-				if(boss1.gun[i]==1)
+				if(boss1[0].gun[i]==1)
 				{
-					if(boss_bullet[i].ballY<=0) {
+					if(boss_bullet[0].bullet[i].ballY<=0) {
 						boss_bullet_init();
 						break;
 					}
 					
 					else{
-						boss_bullet[i].ballY-=10;
+						boss_bullet[0].bullet[i].ballY-=5;
 					}
 				}
 
@@ -386,18 +389,18 @@ GAME_Update()
 			for(int i=0; i<3; i++)
 			{
 
-				if(my_bullet[i].ballIsRun==1)
+				if(my_bullet[0].bullet[i].ballIsRun==1)
 				{
-					if(my_bullet[i].ballY>=LCD_PIXEL_HEIGHT - 20) {
+					if(my_bullet[0].bullet[i].ballY>=LCD_PIXEL_HEIGHT - 20) {
 						standby++;
-						my_bullet[i].ballIsRun=0;
-						my_bullet[i].ballX = me_centerX;
-						my_bullet[i].ballY = me_centerY;						
+						my_bullet[0].bullet[i].ballIsRun=0;
+						my_bullet[0].bullet[i].ballX = me1[0].centerX;
+						my_bullet[0].bullet[i].ballY = me1[0].centerY;						
 						continue;
 					}
 					
 					else{
-						my_bullet[i].ballY+=10;
+						my_bullet[0].bullet[i].ballY+=5;
 					}
 				}
 
@@ -408,12 +411,12 @@ GAME_Update()
 			for(int i=0; i<3; i++)
 			{
 
-				if(boss1.gun[i]==1)
+				if(boss1[0].gun[i]==1)
 				{
-					if(boss_bullet[i].ballY<=me_centerY){
+					if(boss_bullet[0].bullet[i].ballY<=me1[0].centerY){
 
-						if(boss_bullet[i].ballX<=me_centerX+10&&boss_bullet[i].ballX>=me_centerX-10) {
-							me1.LifePoint--;
+						if(boss_bullet[0].bullet[i].ballX<=me1[0].centerX+10&&boss_bullet[0].bullet[i].ballX>=me1[0].centerX-10) {
+							me1[0].LifePoint--;
 						}
 						else{
 
@@ -427,23 +430,33 @@ GAME_Update()
 			
 			//PONG! boss
 			for(int i=0; i<3; i++){
-				if(my_bullet[i].ballIsRun){
-					if(my_bullet[i].ballY>=boss_centerY)
+				if(my_bullet[0].bullet[i].ballIsRun){
+					if(my_bullet[0].bullet[i].ballY>=boss1[0].centerY)
 					{
-						if(my_bullet[i].ballX<=boss_centerX+20&&my_bullet[i].ballX<=boss_centerX-20){
-							if(boss1.gunCount==3){
-								boss1.gun[2]=0;
-								boss1.gunCount--;
+						if(my_bullet[0].bullet[i].ballX<=boss1[0].centerX+20&&my_bullet[0].bullet[i].ballX<=boss1[0].centerX-20){
+							if(boss1[0].gunCount==3){
+								LCD_SetLayer(LCD_BACKGROUND_LAYER);
+								LCD_SetTextColor( LCD_COLOR_BLACK );
+								draw_bossbullet(boss_bullet[1]);
+								LCD_SetLayer(LCD_FOREGROUND_LAYER);
+								boss1[0].gun[2]=0;
+								boss1[1].gun[2]=0;
+								boss1[0].gunCount--;
 							}
-							else if(boss1.gunCount==2){
-								boss1.gun[0]=0;
-								boss1.gunCount--;
+							else if(boss1[0].gunCount==2){
+								LCD_SetLayer(LCD_BACKGROUND_LAYER);
+								LCD_SetTextColor( LCD_COLOR_BLACK );
+								draw_bossbullet(boss_bullet[1]);
+								LCD_SetLayer(LCD_FOREGROUND_LAYER);
+								boss1[0].gun[0]=0;
+								boss1[1].gun[0]=0;
+								boss1[0].gunCount--;
 							}
-							boss1.LifePoint--;
+							boss1[0].LifePoint--;
 							standby++;
-							my_bullet[i].ballIsRun=0;
-							my_bullet[i].ballX = me_centerX;
-							my_bullet[i].ballY = me_centerY;		
+							my_bullet[0].bullet[i].ballIsRun=0;
+							my_bullet[0].bullet[i].ballX = me1[0].centerX;
+							my_bullet[0].bullet[i].ballY = me1[0].centerY;		
 						}
 							
 					}
@@ -454,9 +467,11 @@ GAME_Update()
 			}
 
 		
+
 		
 	}
 }
+
 static char* itoa(int value, char* result, int base)
 {
 	if (base < 2 || base > 36) {
@@ -482,34 +497,68 @@ static char* itoa(int value, char* result, int base)
 	return result;
 }
 
+
 void
 GAME_Render()
 {
-	char str1[16] = "boss: ";
-	itoa(boss1.LifePoint, str1 + 4, 10);
-	LCD_DisplayStringLine(LCD_LINE_6, str1);
-
-	char str2[16] = "me: ";
-	itoa(me1.LifePoint, str2 + 4, 10);
-	LCD_DisplayStringLine(LCD_LINE_5, str2);
-
-	/*//
-	char str3[16] = "standby: ";
-	itoa(standby, str3 + 9, 10);
-	LCD_DisplayStringLine(LCD_LINE_5, str3);
-	*/
 	
 	LCD_SetTextColor( LCD_COLOR_WHITE );
-	draw_me();
-	draw_boss();
+	draw_me(me1[0]);
+	draw_boss(boss1[0]);
 	
 	LCD_SetTextColor( LCD_COLOR_RED );
-	draw_bossbullet();
-	draw_gun();
+	draw_bossbullet(boss_bullet[0]);
+	draw_gun(boss1[0]);
 
 	LCD_SetTextColor( LCD_COLOR_BLUE );
-	draw_mybullet();
+	draw_mybullet(my_bullet[0]);
+
+	LTDC_LayerAlpha(LTDC_Layer1, SHOW);
+	LTDC_LayerAlpha(LTDC_Layer2, HIDE);	
+	LTDC_ReloadConfig(LTDC_VBReload);
+	vTaskDelay( 2.5 );
+
+
+	LCD_SetLayer(LCD_BACKGROUND_LAYER);
+	LCD_SetTextColor( LCD_COLOR_BLACK );
+	draw_me(me1[1]);
+	draw_boss(boss1[1]);
+	draw_gun(boss1[1]);
+	draw_mybullet(my_bullet[1]);
+	draw_bossbullet(boss_bullet[1]);
+
+
+	LCD_SetTextColor( LCD_COLOR_WHITE );
+	draw_me(me1[0]);
+	draw_boss(boss1[0]);
 	
+	LCD_SetTextColor( LCD_COLOR_RED );
+	draw_bossbullet(boss_bullet[0]);
+	draw_gun(boss1[0]);
+
+	LCD_SetTextColor( LCD_COLOR_BLUE );
+	draw_mybullet(my_bullet[0]);
+
+
+	LTDC_LayerAlpha(LTDC_Layer2, SHOW);			
+	LTDC_LayerAlpha(LTDC_Layer1, HIDE);
+	LTDC_ReloadConfig(LTDC_VBReload);
+	vTaskDelay( 2.5 );
+
+	LCD_SetLayer(LCD_FOREGROUND_LAYER);
+
+	LCD_SetTextColor( LCD_COLOR_BLACK );
+
+	draw_me(me1[0]);
+	draw_boss(boss1[0]);
+	draw_gun(boss1[0]);
+	draw_mybullet(my_bullet[0]);
+	draw_bossbullet(boss_bullet[0]);
+	
+	boss_bullet[1]=boss_bullet[0];
+	my_bullet[1]=my_bullet[0];
+	me1[1]=me1[0];
+	boss1[1]=boss1[0];
 }
 
 
